@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------------------------
 # version | date   | author   | changes
 # ---------------------------------------------------------------------------------------
+# 1.10    |05.01.05| JSTENZEL | added options resolveRelativePathes and resolveEnvVars;
 # 1.09    |19.10.04| JSTENZEL | option -startupFilename now accepts array references both
 #         |        |          | directly set up and supplied by a callback;
 #         |20.10.04| JSTENZEL | new option -fileOption allows to use a user defined option
@@ -41,7 +42,7 @@ Getopt::ArgvFile - interpolates script options from files into @ARGV or another 
 
 =head1 VERSION
 
-This manual describes version B<1.09>.
+This manual describes version B<1.10>.
 
 =head1 SYNOPSIS
 
@@ -214,7 +215,7 @@ require 5.003;
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.09";
+$VERSION="1.10";
 $VERSION=$VERSION;
 
 =pod
@@ -394,6 +395,43 @@ If anyone provides these files, a user can use a very short call:
 
 and argvFile() will recursively move all the filed program parameters
 into @ARGV.
+
+
+B<Relative pathes>
+
+Pathes in option files might be relative, as in
+
+  -file ../file @../../configs/nested
+
+If written with the (prepared) start directory in mind, that will work,
+but it can fail when it was written relatively to the option file location
+because by default those pathes will not be resolved when written from
+an option file.
+
+Use parameter C<resolveRelativePathes> to switch to path resolution:
+
+   argvFile(resolveRelativePathes=>1);
+
+will cause C<argvFile()> to expand those pathes, both in standard strings
+and nested option files.
+
+   With resolveRelativePathes, both pathes
+   will be resolved:
+
+   -file ../file @../../configs/nested
+
+A path is resolved I<relative to the option file> it is found in.
+
+
+B<Envrionment variables>
+
+Similar to relative pathes, environment variables are handled differently
+depending if the option is specified at the commandline or from an option
+file, due to bypassed shell processing. By default, C<argvFile()> does
+not resolve environment variables. But if required it can be commanded
+to do so via parameter C<resolveEnvVars>.
+
+  argvFile(resolveEnvVars=>1);
 
 B<Startup support>
 
@@ -733,8 +771,51 @@ sub argvFile
                # remove newlines, leading and trailing spaces
                s/\s*\n?$//; s/^\s*//;
 
-               # store options and parameters
-               push(@c, shellwords($_));
+               # get "shellwords", double backslashes before Dollar characters
+               # as they would get lost otherwise (other backslash removals are welcome!)
+               s/\\\$/\\\\\$/g;
+               my (@shellwords)=shellwords($_);
+               
+               # replace environment variables, if necessary
+               if (exists $switches{resolveEnvVars})
+                 {
+                  # get *quoted* strings
+                  my (@quotedwords)=quotewords('\s+', 1, $_);
+
+                  # process all strings
+                  for (my $i=0; $i<@shellwords; ++$i)
+                    {
+                     # substitute environment variables, except in single quoted strings
+                     unless ($quotedwords[$i]=~/^'.+'$/)
+                       {
+                        # named variables
+                        $shellwords[$i]=~s/(?<!\\)\$(\w+)/exists $ENV{$1} ? $ENV{$1} : ''/ge;
+
+                        # symbolic variables
+                        $shellwords[$i]=~s/(?<!\\)\$(?:{(\w+)})/exists $ENV{$1} ? $ENV{$1} : ''/ge;
+
+                        # finally, remove the backslashes before Dollar characters we added above
+                        $shellwords[$i]=~s/\\\$/\$/g;
+                       }
+                    }
+                 }
+
+               # resolve relative pathes, if requested
+               if (exists $switches{resolveRelativePathes})
+                 {
+                  # process all strings
+                  foreach my $string (@shellwords)
+                    {
+                     # scopy
+                     my @p;
+                     # replace as necessary
+                     @p=(defined($1) ? $1 : '', $2), $string=~s#^$p[0]$p[1]#join('', $p[0], abs_path(catfile(dirname($arrayRef->[$i]), $p[1])))#e
+                       if $string=~m#^($prefix)?([./]+)/#;
+                    }
+                 }
+
+               # supply results
+               push(@c, @shellwords);
               }
            }
           }
@@ -863,7 +944,7 @@ Jochen Stenzel E<lt>mailto:perl@jochen-stenzel.deE<gt>
 
 =head1 LICENSE
 
-Copyright (c) 1993-2004 Jochen Stenzel. All rights reserved.
+Copyright (c) 1993-2005 Jochen Stenzel. All rights reserved.
 
 This program is free software, you can redistribute it and/or modify it
 under the terms of the Artistic License distributed with Perl version

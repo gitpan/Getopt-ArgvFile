@@ -2,7 +2,7 @@
 Release
 =======
 
-Getopt::ArgvFile 1.09.
+Getopt::ArgvFile 1.10.
 
 
 Overview
@@ -134,6 +134,11 @@ This module can be installed as usual by
 
 What's new?
 ===========
+
+1.10 New options "resolveRelativePathes" and "resolveEnvVars"
+     make it behave like the shell in resolving relative
+     pathes (relative to the option file they are used in)
+     and environment variables.
 
 1.09 This version integrates several improvements suggested
      by Kathryn Andersen, provided as complete patches that
@@ -299,7 +304,7 @@ to contact me at perl@jochen-stenzel.de.
 Author, Copyright, License
 ==========================
 
-Copyright (c) 1993-2004 Jochen Stenzel. All rights reserved.
+Copyright (c) 1993-2005 Jochen Stenzel. All rights reserved.
 
 This module is free software, you can redistribute it and/or modify it
 under the terms of the Artistic License distributed with Perl version
