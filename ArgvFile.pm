@@ -4,6 +4,9 @@
 # ---------------------------------------------------------------------------------------
 # version | date   | author   | changes
 # ---------------------------------------------------------------------------------------
+# 1.04    |29.10.00| JSTENZEL | bugfix: options were read twice if both default and home
+#         |        |          | startup options were read and the script was installed in
+#         |        |          | the users homedirectory;
 # 1.03    |25.03.00| JSTENZEL | new parameter "prefix";
 #         |        | JSTENZEL | POD in option files is now supported;
 #         |        | JSTENZEL | using Test in test suite now;
@@ -21,7 +24,7 @@ Getopt::ArgvFile - interpolates script options from files into @ARGV or another 
 
 =head1 VERSION
 
-This manual describes version B<1.03>.
+This manual describes version B<1.04>.
 
 =head1 SYNOPSIS
 
@@ -143,7 +146,7 @@ require 5.003;
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.03";
+$VERSION="1.04";
 $VERSION=$VERSION;
 
 =pod
@@ -384,6 +387,13 @@ sub argvFile
 
   # init startup file pathes
   ($startup{'default'}{'path'}, $startup{'home'}{'path'})=(dirname($0), exists $ENV{'HOME'} ? $ENV{'HOME'} : \007);
+
+  # if startup pathes are *identical* (script installed in home directory) and
+  # both startup flags are set, we can delete one of them (to read the options only once)
+  delete $switches{default} if     exists $switches{default} and exists $switches{home}
+                               and -e join('', $startup{default}{path}, '/.', basename($0))
+                               and -e join('', $startup{home}{path}, '/.', basename($0))
+                               and (stat(join('', $startup{default}{path}, '/.', basename($0))))[1]==(stat(join('', $startup{home}{path}, '/.', basename($0))))[1];
 
   # check all possible startup files for usage - be careful to handle
   # them in the following order (implemented by alphabetical order here!):

@@ -126,6 +126,11 @@ This module can be installed as usual by
 What's new?
 ===========
 
+1.04 fixed a bug: if the script directory was identical
+     to the users home and both default and home setting
+     were used, the default options were read twice
+     (thanks to Manfred Kuegler for the report).
+
 1.03 introduced new parameter "prefix".
      POD comments in option files are supported now
      (according to an idea of Joe Pepin).
