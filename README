@@ -2,7 +2,7 @@
 Release
 =======
 
-Getopt::ArgvFile 1.03.
+Getopt::ArgvFile 1.05.
 
 
 Overview
@@ -106,7 +106,8 @@ If options should be processed into another array, this can be done this way:
 Requirements
 ============
 
-Getopt::ArgvFile is tested with Perl versions 5.00[345].
+Getopt::ArgvFile is tested with Perl versions 5.005 and 5.6.x.
+(Versions prior 1.04 were tested with 5.00[34], too.)
 It should run under later versions as well.
 
 Text::ParseWords 3.1 is required.
@@ -125,6 +126,18 @@ This module can be installed as usual by
 
 What's new?
 ===========
+
+1.05 Using File::Spec::Functions to build filenames
+     more portable.
+
+     Using Cwd::abs_path() now to check if several
+     startup file locations are identical.
+
+     Added support for startup files in the *current*
+     directory (thanks to Helmut Steinbach for this
+     suggestion).
+
+     Switched to Test::More (for installation checks).
 
 1.04 fixed a bug: if the script directory was identical
      to the users home and both default and home setting
@@ -152,7 +165,7 @@ to contact me at perl@jochen-stenzel.de.
 Author, Copyright, License
 ==========================
 
-Copyright (c) 1993-2000 Jochen Stenzel. All rights reserved.
+Copyright (c) 1993-2002 Jochen Stenzel. All rights reserved.
 
 This module is free software, you can redistribute it and/or modify it
 under the terms of the Artistic License distributed with Perl version

@@ -4,6 +4,12 @@
 # ---------------------------------------------------------------------------------------
 # version | date   | author   | changes
 # ---------------------------------------------------------------------------------------
+# 1.05    |30.04.02| JSTENZEL | cosmetics: hash access without quotes;
+#         |        | JSTENZEL | corrected and improved inline doc;
+#         |        | JSTENZEL | using File::Spec::Functions to build filenames,
+#         |        |          | for improved portability;
+#         |        | JSTENZEL | using Cwd::abs_path() to check if files were read already;
+#         |        | JSTENZEL | added support for default files in *current* directory;
 # 1.04    |29.10.00| JSTENZEL | bugfix: options were read twice if both default and home
 #         |        |          | startup options were read and the script was installed in
 #         |        |          | the users homedirectory;
@@ -24,17 +30,20 @@ Getopt::ArgvFile - interpolates script options from files into @ARGV or another 
 
 =head1 VERSION
 
-This manual describes version B<1.04>.
+This manual describes version B<1.05>.
 
 =head1 SYNOPSIS
 
   # load the module
   use Getopt::ArgvFile qw(argvFile);
+
   # load another module to evaluate the options, e.g.:
   use Getopt::Long;
   ...
+
   # solve option files
   argvFile;
+
   # evaluate options, e.g. this common way:
   GetOptions(%options, 'any');
 
@@ -42,7 +51,9 @@ If options should be processed into another array, this can be done this way:
 
   # prepare target array
   my @options=('@options1', '@options2', '@options3');
+
   ...
+
   # replace file hints by the options stored in the files
   argvFile(array=>\@options);
 
@@ -146,7 +157,7 @@ require 5.003;
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.04";
+$VERSION="1.05";
 $VERSION=$VERSION;
 
 =pod
@@ -176,6 +187,8 @@ use strict;
 use Carp;
 use File::Basename;
 use Text::ParseWords;
+use File::Spec::Functions;
+use Cwd qw(:DEFAULT abs_path chdir);
 
 # METHOD SECTION  ################################################
 
@@ -288,34 +301,55 @@ into @ARGV.
 
 B<Startup support>
 
-By setting several named parameters, you can enable I<default>
-and I<home> option files. Both are searched with the scriptname preceeded
+By setting several named parameters, you can enable I<default>, I<home>
+and I<current> option files. All are searched with the scriptname preceeded
 by a dot. The I<default option file> is searched in the installation path
 of the calling script, while the I<home option file> is searched in the
-users home (evaluated via environment variable "HOME").
+users home (evaluated via environment variable "HOME"), and the
+I<current option script> is searched in the current directory.
 
  Examples:
-  If called in a script "/path/script" by "user" whoms "HOME"
-  variable points to "/homes/user", the following happens:
+  If a script located in "/path/script" is invoked in directory
+  /the/current/dir by a user "user" whoms "HOME" variable points
+  to "/homes/user", the following happens:
 
 C<>
 
-  argvFile()                    # ignores startup option files;
+  argvFile()                    # ignores all startup option files;
   argvFile(default=>1)          # searches and expands "/path/.script",
                                 # if available (the "default" settings);
   argvFile(home=>1)             # searches and expands "/homes/user/.script",
                                 # if available (the "home" settings);
-  argvFile(default=>1, home=>1) # tries to handle both startups.
+  argvFile(current=>1)          # searches and expands "/the/current/dir/.script",
+                                # if available (the "current" settings);
+  argvFile(
+           default => 1,
+           home    => 1,
+           current => 1
+          )                     # tries to handle all startups.
 
 Any true value will activate the setting it is assigned to.
 
 The contents found in a startup file is placed I<before> all explicitly
 set command line arguments. This enables to overwrite a default setting
-by an explicit option. If both startup files are read, I<home> startup
-files can overwrite I<default> ones, so that the I<default> startups are
-most common. In other words, if the module would not support startup
-files, you could get the same result with
-"script @/path/.script @/homes/user/.script".
+by an explicit option. If all startup files are read, I<current> startup
+files can overwrite I<home> files which have preceedence over I<default>
+ones, so that the I<default> startups are most common. In other words,
+if the module would not support startup files, you could get the same
+result with "script @/path/.script @/homes/user/.script @/the/current/dir/.script".
+
+Note: There is one certain case when overwriting will I<not> work completely
+because duplicates are sorted out: if all three types of startup files are
+used and the script is started in the installation directory,
+the default file will be identical to the current file. The default file is
+processed, but the current file is skipped as a duplicate later on and will
+I<not> overwrite settings made caused by the intermediately processed home file.
+If started in another directory, it I<will> overwrite the home settings.
+But the alternative seems to be even more confusing: the script would behave
+differently if just started in its installation path. Because a user might
+be more aware of configuration editing then of the current path, I choose
+the current implementation, but this preceedence might become configurable
+in a future version.
 
 If there is no I<HOME> environment variable, the I<home> setting takes no effect
 to avoid trouble accessing the root directory.
@@ -365,7 +399,7 @@ are typically option prefixes.
 sub argvFile
  {
   # declare function variables
-  my ($maskString, $i, %rfiles, %startup)=("\0x07\0x06\0x07");
+  my ($maskString, $i, %rfiles, %startup, %seen)=("\0x07\0x06\0x07");
 
   # detect the host system (to prepare filename handling)
   my $casesensitiveFilenames=$^O!~/^(?:dos|os2|MSWin32)/i;
@@ -375,42 +409,70 @@ sub argvFile
   my %switches=@_;
 
   # perform more parameter checks
-  confess('[BUG] The "array" parameter value is no array reference.') if exists $switches{'array'} and not (ref($switches{'array'}) and ref($switches{'array'}) eq 'ARRAY');
-  confess('[BUG] The "prefix" parameter value is no defined literal.') if exists $switches{'prefix'} and (not defined $switches{'prefix'} or ref($switches{'prefix'}));
-  confess('[BUG] Invalid "prefix" parameter $switches{"prefix"}.') if exists $switches{'prefix'} and $switches{'prefix'}=~/^[-#=+]$/;
+  confess('[BUG] The "array" parameter value is no array reference.') if exists $switches{array} and not (ref($switches{array}) and ref($switches{array}) eq 'ARRAY');
+  confess('[BUG] The "prefix" parameter value is no defined literal.') if exists $switches{prefix} and (not defined $switches{prefix} or ref($switches{prefix}));
+  confess('[BUG] Invalid "prefix" parameter $switches{"prefix"}.') if exists $switches{prefix} and $switches{prefix}=~/^[-#=+]$/;
 
   # set array reference
-  my $arrayRef=exists $switches{'array'} ? $switches{'array'} : \@ARGV;
+  my $arrayRef=exists $switches{array} ? $switches{array} : \@ARGV;
 
   # set prefix
-  my $prefix=exists $switches{'prefix'} ? $switches{'prefix'} : '@';
+  my $prefix=exists $switches{prefix} ? $switches{prefix} : '@';
 
   # init startup file pathes
-  ($startup{'default'}{'path'}, $startup{'home'}{'path'})=(dirname($0), exists $ENV{'HOME'} ? $ENV{'HOME'} : \007);
+  (
+   $startup{default}{path},
+   $startup{home}{path},
+   $startup{current}{path},
+  )=(
+     dirname($0),
+     exists $ENV{HOME} ? $ENV{HOME} : \007,
+     cwd(),
+    );
 
-  # if startup pathes are *identical* (script installed in home directory) and
-  # both startup flags are set, we can delete one of them (to read the options only once)
-  delete $switches{default} if     exists $switches{default} and exists $switches{home}
-                               and -e join('', $startup{default}{path}, '/.', basename($0))
-                               and -e join('', $startup{home}{path}, '/.', basename($0))
-                               and (stat(join('', $startup{default}{path}, '/.', basename($0))))[1]==(stat(join('', $startup{home}{path}, '/.', basename($0))))[1];
+  # If startup pathes are *identical* (script installed in home directory) and
+  # both startup flags are set, we can delete one of them (to read the options only once).
+  # (Note that we could easily combine this with the subsequent loop, but an extra loop
+  # will make it easy to allow extra configuration for "first seen first processed" /
+  # "fix processing order" preferences (what if the current directory is the default
+  # one, but should overwrite the home settings?).)
+  foreach my $type (qw(default home current))
+    {
+     # skip unused settings
+     next unless exists $switches{$type};
+
+     # build filename
+     my $cfg=catfile(abs_path($startup{$type}{path}), join('', '.', basename($0)));
+
+     # remove this setting if the associated file
+     # was already seen before (each file should be read once)
+     # - or if there is no such file this call
+     delete $switches{$type}, next if exists $seen{$cfg} or not -e $cfg;
+
+     # otherwise, note that we saw this file
+     $seen{$cfg}=1;
+    }
 
   # check all possible startup files for usage - be careful to handle
   # them in the following order (implemented by alphabetical order here!):
-  # FIRST, the HOME startup should be read, THEN the DEFAULT one - this way,
-  # all startup options are placed before command line ones, and the
-  # HOME settings can overwrite the DEFAULT ones - which are the most common
-  foreach (reverse sort keys %startup)
+  # FIRST, the DEFAULT startup should be read, THEN the HOME one and finally
+  # the CURRENT one - this way, all startup options are placed before command
+  # line ones, and the CURRENT settings can overwrite the HOME settings which
+  # can overwrite the DEFAULT ones - which are the most common.
+  # Note that to achieve this reading order, we have to build the array
+  # of filenames in reverse order (because we use unshift() for construction).
+  foreach (qw(current home default))
     {
      # anything to do?
-     if (exists $switches{$_} and $startup{$_}{'path'} ne \007)
+     if (exists $switches{$_} and $startup{$_}{path} ne \007)
        {
         # build absolute startup filename
-        my $cfg=join('', $startup{$_}{'path'}, '/.', basename($0));
+        my $cfg=catfile(abs_path($startup{$_}{path}), join('', '.', basename($0)));
 
-        # if there's a configuration file, let's proceed it first - this way,
+        # let's proceed this file first - this way,
         # command line options can overwrite configuration settings
-        unshift @$arrayRef, join('', $prefix, $cfg) if -e $cfg;
+        # (we already checked file existence above)
+        unshift @$arrayRef, join('', $prefix, $cfg);
        }
     }
 
@@ -487,6 +549,15 @@ sub argvFile
 
 =pod
 
+=head1 NOTES
+
+If a script calling C<argvFile()> with the C<default> switch is
+invoked using a relative path, it is strongly recommended to
+perform the call of C<argvFile()> in the startup directory
+because C<argvFile()> then uses the I<relative> script path as
+well.
+
+
 =head1 LIMITS
 
 If an option file does not exist, argvFile() simply ignores it.
@@ -498,7 +569,7 @@ Jochen Stenzel E<lt>mailto://perl@jochen-stenzel.deE<gt>
 
 =head1 LICENSE
 
-Copyright (c) 1993-2000 Jochen Stenzel. All rights reserved.
+Copyright (c) 1993-2002 Jochen Stenzel. All rights reserved.
 
 This program is free software, you can redistribute it and/or modify it
 under the terms of the Artistic License distributed with Perl version

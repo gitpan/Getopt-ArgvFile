@@ -13,6 +13,8 @@ WriteMakefile(
 			  VERSION_FROM => 'ArgvFile.pm',
                           PREREQ_PM    => {
                                            Text::ParseWords => 3.1,
+                                           Test::Harness    => 1.25,
+                                           Test::More       => 0.11,
                                           },
 			  dist         => {
 			                   COMPRESS => 'gzip -9',

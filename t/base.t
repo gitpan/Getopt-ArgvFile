@@ -2,17 +2,15 @@
 # set pragma
 use strict;
 
-# load test module
-use Test;
+# load modules
+use Cwd;
+use Test::More qw(no_plan);
 
 # load the module
 use Getopt::ArgvFile qw(argvFile);
 
-# declare number of tests
-BEGIN {plan tests=>2;}
-
 # action!
-argvFile(home=>1, default=>1);
+argvFile(default=>1);
 
 # declare expected result
 my @expected=(
@@ -35,14 +33,37 @@ my @expected=(
 			 );
 
 # perform first check
-ok(@ARGV==@expected && "@ARGV" eq "@expected");
+is(@ARGV, @expected);
+eq_array(\@ARGV, \@expected);
+
+# clear @ARGV, try another startup path
+undef(@ARGV);
+{
+ # adapt expectations (nestings does not work because
+ # the default tests use the installation directory)
+ my @current=@expected[0..$#expected-2];
+
+ # run it where the files are
+ my $dir=cwd();
+ chdir('t');
+ argvFile(current=>1);
+ chdir($dir);
+
+ # check results
+ is(@ARGV, @current);
+ eq_array(\@ARGV, \@current);
+}
 
 # declare an alternative array
 my @options;
 
 # action!
-argvFile(home=>1, default=>1, array=>\@options);
+argvFile(default=>1, array=>\@options);
 
-# perform second check
-ok(@options==@expected && "@options" eq "@expected");
+# perform next check
+is(@options, @expected);
+eq_array(\@options, \@expected);
+
+
+
 

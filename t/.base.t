@@ -22,7 +22,7 @@ some POD
 
 The following is POD and should NOT be epanded!
 
-  -alpa beta
+  -alpha beta
 
 =cut
 
