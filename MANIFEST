@@ -4,9 +4,11 @@ README
 t/.base.t
 t/.base.t.cfg
 t/base.t
+t/.fileopt.t
+t/fileopt.t
+t/noHOMEvar.t
 t/.prefix.t
 t/prefix.t
-t/noHOMEvar.t
 t/use1.t
 t/use2.t
 t/case.cfg

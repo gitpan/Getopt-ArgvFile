@@ -14,5 +14,5 @@ use Getopt::ArgvFile prefix=>'~', justload=>1;
 
 # perform checks
 is(@ARGV, 1);
-eq_array(\@ARGV, \@org);
+is_deeply(\@ARGV, \@org);
 

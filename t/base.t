@@ -35,7 +35,7 @@ my @expected=(
 
 # perform first check
 is(@ARGV, @expected);
-eq_array(\@ARGV, \@expected);
+is_deeply(\@ARGV, \@expected);
 
 # clear @ARGV, try another startup path
 undef(@ARGV);
@@ -52,7 +52,7 @@ undef(@ARGV);
 
  # check results
  is(@ARGV, @current);
- eq_array(\@ARGV, \@current);
+ is_deeply(\@ARGV, \@current);
 }
 
 # modify HOME and check the "home" switch
@@ -66,7 +66,7 @@ undef(@ARGV);
 
  # check results
  is(@ARGV, @expected);
- eq_array(\@ARGV, \@expected);
+ is_deeply(\@ARGV, \@expected);
 }
 
 # declare an alternative array
@@ -77,7 +77,7 @@ argvFile(default=>1, array=>\@options);
 
 # perform next check
 is(@options, @expected);
-eq_array(\@options, \@expected);
+is_deeply(\@options, \@expected);
 
 
 # use other startup filename schemes: configured by string
@@ -86,15 +86,32 @@ argvFile(default=>1, startupFilename=>'.base.t.cfg');
 
 # perform next check
 is(@ARGV, @expected);
-eq_array(\@ARGV, \@expected);
+is_deeply(\@ARGV, \@expected);
 
 
-# use other startup filename schemes: configured by a function
+# use other startup filename schemes: configured by a function that replies a scalar filename string
 undef(@ARGV);
 argvFile(default=>1, startupFilename=>sub {join('', '.', basename($_[0]), '.cfg');});
 
 # perform next check
 is(@ARGV, @expected);
-eq_array(\@ARGV, \@expected);
+is_deeply(\@ARGV, \@expected);
 
+# use other startup filename schemes: filenames configured by array
+undef(@ARGV);
+argvFile(default=>1, startupFilename=>[qw(.base.trc .base.t.cfg)]);
+
+# perform next check
+is(@ARGV, @expected);
+is_deeply(\@ARGV, \@expected);
+
+
+# use other startup filename schemes: filenames configured by a function that supplies a list of filename
+# choices
+undef(@ARGV);
+argvFile(default=>1, startupFilename=>sub {my $sname=basename($_[0]); [".${sname}rc", ".$sname.cfg"];});
+
+# perform next check
+is(@ARGV, @expected);
+is_deeply(\@ARGV, \@expected);
 

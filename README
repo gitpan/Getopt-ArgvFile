@@ -2,7 +2,7 @@
 Release
 =======
 
-Getopt::ArgvFile 1.08.
+Getopt::ArgvFile 1.09.
 
 
 Overview
@@ -134,6 +134,61 @@ This module can be installed as usual by
 
 What's new?
 ===========
+
+1.09 This version integrates several improvements suggested
+     by Kathryn Andersen, provided as complete patches that
+     were carefully prepared. Thanks!
+
+     First, option "startupFilename" accepts *lists* now,
+     both directly provided and supplied by a callback.
+     For each startup directory, the list is searched for
+     the name of an existing file. The first matching file
+     gets processed.
+
+       Example:
+
+         use Getopt::ArgvFile startupFilenames=>[qw(.rc .cfg)];
+
+       searches for startup files named ".rc" and ".cfg"
+       (in this order), using the first file available
+       in each startup path.
+
+     Second, a new option "fileOption" allows to declare
+     an option usable instead of an option file *prefix*,
+     intended to make option files more familiar to new
+     users.
+
+       Example:
+
+          use Getopt::ArgvFile fileOption=>'options';
+
+       allows to specify an option file by
+
+          ... -options file ...
+
+       , which is a synonym for (the still valid)
+
+          ... @file
+
+     Nesting and cascading still work as before.
+
+       Example:
+
+          ... -options -options file
+
+       is a synonym for (the still valid)
+
+          ... @@file
+
+       syntax.
+
+     Besides these patches, Test::More::eq_array() turned
+     out to be buggy (in older versions of Test::More, at
+     least), so tests now use the well working
+     Test::More::is_deeply() function.
+     
+     Finally, the results of "startupFilename" callbacks
+     were not checked yet. This is fixed.
 
 1.08 In very rare circumstances, the one line processing
      via use() that was introduced with 1.07 could break

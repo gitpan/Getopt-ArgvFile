@@ -4,6 +4,11 @@
 # ---------------------------------------------------------------------------------------
 # version | date   | author   | changes
 # ---------------------------------------------------------------------------------------
+# 1.09    |19.10.04| JSTENZEL | option -startupFilename now accepts array references both
+#         |        |          | directly set up and supplied by a callback;
+#         |20.10.04| JSTENZEL | new option -fileOption allows to use a user defined option
+#         |        |          | instead of an option file prefix like "@" (-options options
+#         |        |          | instead of @options);
 # 1.08    |30.04.04| JSTENZEL | new import() switch "justload";
 # 1.07    |29.04.04| JSTENZEL | import() implemented directly: emulating the old behaviour
 #         |        |          | of Exporter::import() when necessary, it alternatively
@@ -36,7 +41,7 @@ Getopt::ArgvFile - interpolates script options from files into @ARGV or another 
 
 =head1 VERSION
 
-This manual describes version B<1.08>.
+This manual describes version B<1.09>.
 
 =head1 SYNOPSIS
 
@@ -97,7 +102,16 @@ If options should be processed into another array, this can be done this way:
   # replace file hints by the options stored in the files
   argvFile(array=>\@options);
 
+In case you do not like the "@" prefix it is possible to define an option to
+be used instead:
 
+  # prepare target array
+  my @options=('-options', 'options1', '-options', 'options2');
+
+  ...
+
+  # replace file hints by the options stored in the files
+  argvFile(fileOption=>'option', array=>\@options);
 
 
 =head1 DESCRIPTION
@@ -200,7 +214,7 @@ require 5.003;
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.08";
+$VERSION="1.09";
 $VERSION=$VERSION;
 
 =pod
@@ -241,6 +255,9 @@ use File::Basename;
 use Text::ParseWords;
 use File::Spec::Functions;
 use Cwd qw(:DEFAULT abs_path chdir);
+
+# module variables
+my $optionPrefixPattern=qr/(-{1,2}|\+)/;
 
 # METHOD SECTION  ################################################
 
@@ -417,16 +434,35 @@ Any true value will activate the setting it is assigned to.
 In case the ".script" name rule does not meet your needs or does not fit
 into a certain policy, the expected startup filenames can be set up by
 an option C<startupFilename>. The option value may be a scalar used as
-the expected filename, or a reference to code returning the name. Such
-code will be called I<once> and will receive the name of the script.
+the expected filename, or a reference to an array of accepted choices,
+or a reference to code returning the name - plainly or as a reference to
+an array of names. Such callback code will be called I<once> and will
+receive the name of the script.
 
   # use ".config"
   argvFile(startupFilename => '.config');
 
+  # use ".config" or "config"
+  argvFile(startupFilename => [qw(.config config)]);
+
   # emulate the default behaviour,
   # but use an extra dot postfix
-  my $nameBuilder=sub {join('', '.', basename($_[0]), '.');}
+  my $nameBuilder=sub {join('', '.', basename($_[0]), '.');};
   argvFile(startupFilename => $nameBuilder);
+
+  # use .(script)rc or .(script)/config
+  my $nameBuilder=sub
+                   {
+                    my $sname=basename($_[0]);
+                    [".${sname}rc", ".${sname}/config"];
+                   };
+  argvFile(startupFilename => $nameBuilder);
+
+Note that the list variants will use the first matching filename in each
+possible startup-file path. For example if your array is C<['.scriptrc',
+'.script.config']> and you have both a C<.scriptrc> and a C<.script.config>
+file in (say) your current directory, only the C<.scriptrc> file will be
+used, as it is the first found.
 
 The contents found in a startup file is placed I<before> all explicitly
 set command line arguments. This enables to overwrite a default setting
@@ -493,6 +529,42 @@ Note that the strings "#", "=", "-" and "+" are reserved and I<cannot>
 be chosen here because they are used to start plain or POD comments or
 are typically option prefixes.
 
+B<Using an option instead of a hint prefix>
+
+People not familiar with option files might be confused by file prefixes.
+This can be avoided by offering an I<option> that can be used instead
+of a prefix, using the optional parameter B<fileOption>:
+
+  # install a file option
+  # (all lines are equivalent)
+  argvFile(fileOption=>'options');
+  argvFile(fileOption=>'-options');
+  argvFile(fileOption=>'+options');
+  argvFile(fileOption=>'--options');
+
+The name of the option can be specified with or without the usual option
+prefixes C<->, C<--> and C<+>.
+
+Once an option is declared, it I<can> replace a prefix. (Prefixes remain
+in action as well.)
+
+   # with -options declared to be a file option,
+   # these sequences are equivalent
+   @file
+   -options file
+
+   # five equivalent cascades
+   @@@@file
+   -options @@@file
+   -options -options @@file
+   -options -options -options @file
+   -options -options -options -options file
+
+Please note that prefixes are attached to the filename with no spaces
+in between, while the option declared via -fileOption is separated from
+the filename by whitespace, as for normal options.
+
+
 =cut
 sub argvFile
  {
@@ -510,7 +582,8 @@ sub argvFile
   confess('[BUG] The "array" parameter value is no array reference.') if exists $switches{array} and not (ref($switches{array}) and ref($switches{array}) eq 'ARRAY');
   confess('[BUG] The "prefix" parameter value is no defined literal.') if exists $switches{prefix} and (not defined $switches{prefix} or ref($switches{prefix}));
   confess('[BUG] Invalid "prefix" parameter $switches{"prefix"}.') if exists $switches{prefix} and $switches{prefix}=~/^[-#=+]$/;
-  confess('[BUG] The "startupFilename" parameter value is neither a scalar nor a code reference.') if exists $switches{startupFilename} and ref($switches{startupFilename}) and ref($switches{startupFilename}) ne 'CODE';
+  confess('[BUG] The "startupFilename" parameter value is neither a scalar nor array or code reference.') if exists $switches{startupFilename} and ref($switches{startupFilename}) and ref($switches{startupFilename})!~/^(ARRAY|CODE)$/;
+  confess('[BUG] The "fileOption" parameter value is no defined literal.') if exists $switches{fileOption} and (not defined $switches{fileOption} or ref($switches{fileOption}));
 
   # check if further operations are suppressed (in case of a call via import())
   {
@@ -525,14 +598,31 @@ sub argvFile
   # set prefix
   my $prefix=exists $switches{prefix} ? $switches{prefix} : '@';
 
-  # set up startup filename
-  my $startupFilename=exists $switches{startupFilename}
-                       ? ref($switches{startupFilename})
-                           ? $switches{startupFilename}->($0)
-                           : $switches{startupFilename}
-                       : join('', '.', basename($0));
+  # set file option
+  my $fileOption=exists $switches{fileOption} ? $switches{fileOption} : '';
+  $fileOption=~s/^$optionPrefixPattern//;
 
-  # init startup file pathes
+  # set up startup filename list
+  my $startupFilenames=exists  $switches{startupFilename}
+                        ?  ref($switches{startupFilename})
+                         ? ref($switches{startupFilename}) eq 'CODE'
+                          ?    $switches{startupFilename}->($0)
+                          :    $switches{startupFilename}
+                         :    [$switches{startupFilename}]
+                        : [join('', '.', basename($0))];
+
+  # check callback results
+  confess('[BUG] The filenames callback did not return a scalar or an array reference.')
+   if ref($startupFilenames) and ref($startupFilenames) ne 'ARRAY';
+
+  # a callback might have returned a(n undefined) scalar instead of an array reference
+  $startupFilenames=[defined $startupFilenames ? $startupFilenames : ()]
+   unless ref($startupFilenames);
+
+  # substitute file options by prefixes, if necessary
+  fileOptions2prefixes($fileOption, $prefix, $arrayRef) if $fileOption;
+
+  # init startup file paths
   (
    $startup{default}{path},
    $startup{home}{path},
@@ -547,30 +637,36 @@ sub argvFile
   # of security
   delete $switches{home} unless exists $ENV{HOME};
 
-  # If startup pathes are *identical* (script installed in home directory) and
+  # If startup paths are *identical* (script installed in home directory) and
   # both startup flags are set, we can delete one of them (to read the options only once).
   # (Note that we could easily combine this with the subsequent loop, but an extra loop
   # will make it easy to allow extra configuration for "first seen first processed" /
   # "fix processing order" preferences (what if the current directory is the default
   # one, but should overwrite the home settings?).)
+  # Also set the first-found startup files while we're finding them. This makes sure we
+  # only use *one* file per path.
+  my %startupFiles;
   foreach my $type (qw(default home current))
     {
      # skip unused settings
      next unless exists $switches{$type};
 
-     # build filename
-     my $cfg=catfile(abs_path($startup{$type}{path}), $startupFilename);
+     # build filename (use the first existing file built according to the list of choices, if any)
+     my $cfg=(grep(-e, map {catfile(abs_path($startup{$type}{path}), $_)} @$startupFilenames))[0];
 
      # remove this setting if the associated file
      # was already seen before (each file should be read once)
      # - or if there is no such file this call
-     delete $switches{$type}, next if exists $seen{$cfg} or not -e $cfg;
+     delete $switches{$type}, next if not defined $cfg or exists $seen{$cfg};
+
+     # buffer filename for subsequent use - no need to built it twice
+     $startupFiles{$type}=$cfg;
 
      # otherwise, note that we saw this file
      $seen{$cfg}=1;
     }
 
-  # check all possible startup files for usage - be careful to handle
+  # Check all possible startup files for usage - be careful to handle
   # them in the following order (implemented by alphabetical order here!):
   # FIRST, the DEFAULT startup should be read, THEN the HOME one and finally
   # the CURRENT one - this way, all startup options are placed before command
@@ -578,19 +674,13 @@ sub argvFile
   # can overwrite the DEFAULT ones - which are the most common.
   # Note that to achieve this reading order, we have to build the array
   # of filenames in reverse order (because we use unshift() for construction).
-  foreach (qw(current home default))
+  foreach my $type (qw(current home default))
     {
-     # anything to do?
-     if (exists $switches{$_})
-       {
-        # build absolute startup filename
-        my $cfg=catfile(abs_path($startup{$_}{path}), $startupFilename);
-
-        # let's proceed this file first - this way,
-        # command line options can overwrite configuration settings
-        # (we already checked file existence above)
-        unshift @$arrayRef, join('', $prefix, $cfg);
-       }
+     # let's proceed this file first, if there is anything to do
+     # - this way, command line options can overwrite configuration
+     # settings (we already checked file existence above)
+     unshift @$arrayRef, join('', $prefix, $startupFiles{$type})
+       if exists $switches{$type};
     }
 
   # nesting ...
@@ -630,15 +720,19 @@ sub argvFile
             # scopy
             my ($pod);
 
+            # handle every line
             while (<OPT>)
               {
                # check for POD directives
                $pod=1 if /^=\w/;
                $pod=0, next if /^=cut/;
+
                # skip space and comment lines (including POD)
-               next if /^\s*$/ || /^\s*#/ || $pod;
+               next if /^\s*$/ || /^\s*\#/ || $pod;
+
                # remove newlines, leading and trailing spaces
                s/\s*\n?$//; s/^\s*//;
+
                # store options and parameters
                push(@c, shellwords($_));
               }
@@ -651,7 +745,10 @@ sub argvFile
           }
        }
 
-     # replace array by expanded array
+     # substitute file options by prefixes, if necessary
+     fileOptions2prefixes($fileOption, $prefix, \@c) if $fileOption;
+
+     # replace original array by expanded array
      @$arrayRef=@c;
     }
 
@@ -677,6 +774,28 @@ sub import
     argvFile(@_);
    }
  }
+
+
+
+# preprocess an array to convert the -fileOption string into a prefix
+sub fileOptions2prefixes
+ {
+  # get and check parameters
+  my ($fileOption, $prefix, $arrayRef)=@_;
+
+  # anything to do?
+  if ($fileOption)
+   {
+    # make options a string and replace all file options by a prefix
+    # (to replace the file option and its successor by the prefixed successor)
+    my $options=join("\x01\x01\x01", @$arrayRef);
+    $options=~s/($optionPrefixPattern$fileOption\x01+)/$prefix/g;
+
+    # replace original array
+    @$arrayRef=split("\x01\x01\x01", $options);;
+   }
+ }
+
 
 
 # flag this module was read successfully
@@ -740,7 +859,7 @@ No message will be displayed, no special return code will be set.
 
 =head1 AUTHOR
 
-Jochen Stenzel E<lt>mailto://perl@jochen-stenzel.deE<gt>
+Jochen Stenzel E<lt>mailto:perl@jochen-stenzel.deE<gt>
 
 =head1 LICENSE
 

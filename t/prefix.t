@@ -33,7 +33,7 @@ my @expected=(
 
 # perform first check
 is(@ARGV, @expected);
-eq_array(\@ARGV, \@expected);
+is_deeply(\@ARGV, \@expected);
 
 # declare an alternative array
 my @options;
@@ -43,5 +43,5 @@ argvFile(default=>1, prefix=>'~', array=>\@options);
 
 # perform second check
 is(@options, @expected);
-eq_array(\@options, \@expected);
+is_deeply(\@options, \@expected);
 

@@ -33,5 +33,5 @@ my @expected=(
 
 # perform checks
 is(@ARGV, @expected);
-eq_array(\@ARGV, \@expected);
+is_deeply(\@ARGV, \@expected);
 
