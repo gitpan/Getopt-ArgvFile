@@ -1,6 +1,12 @@
 
 # comment
 
+=pod
+
+some POD
+
+=cut
+
 # simple options
 -A A
 -b bb
@@ -11,6 +17,14 @@
 # quotes in quotes
 -ddd "'d1 d2\" d3' d4 d5 d6"
 -eee '"e1 e2\' e3" e4 e5 e6'
+
+=pod
+
+The following is POD and should NOT be epanded!
+
+  -alpa beta
+
+=cut
 
 # simple parameters
 par1 par2

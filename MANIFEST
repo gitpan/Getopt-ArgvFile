@@ -1,7 +1,9 @@
 ArgvFile.pm
 Makefile.PL
 README
-t/.1.t
-t/1.t
+t/.base.t
+t/base.t
+t/.prefix.t
+t/prefix.t
 t/case.cfg
 MANIFEST

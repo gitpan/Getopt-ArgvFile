@@ -2,7 +2,7 @@
 Release
 =======
 
-Getopt::ArgvFile 1.02.
+Getopt::ArgvFile 1.03.
 
 
 Overview
@@ -126,6 +126,10 @@ This module can be installed as usual by
 What's new?
 ===========
 
+1.03 introduced new parameter "prefix".
+     POD comments in option files are supported now
+     (according to an idea of Joe Pepin).
+
 1.02 introduced new parameter "array".
 
 1.01 came with an updated README to reflect that the
@@ -145,7 +149,7 @@ Author, Copyright, License
 
 Copyright (c) 1993-2000 Jochen Stenzel. All rights reserved.
 
-This program is free software, you can redistribute it and/or modify it
+This module is free software, you can redistribute it and/or modify it
 under the terms of the Artistic License distributed with Perl version
 5.003 or (at your option) any later version. Please refer to the
 Artistic License that came with your Perl distribution for more

@@ -4,6 +4,9 @@
 # ---------------------------------------------------------------------------------------
 # version | date   | author   | changes
 # ---------------------------------------------------------------------------------------
+# 1.03    |25.03.00| JSTENZEL | new parameter "prefix";
+#         |        | JSTENZEL | POD in option files is now supported;
+#         |        | JSTENZEL | using Test in test suite now;
 # 1.02    |27.02.00| JSTENZEL | new parameter "array";
 #         |        | JSTENZEL | slight POD adaptions;
 # 1.01    |23.03.99| JSTENZEL | README update only;
@@ -18,7 +21,7 @@ Getopt::ArgvFile - interpolates script options from files into @ARGV or another 
 
 =head1 VERSION
 
-This manual describes version B<1.02>.
+This manual describes version B<1.03>.
 
 =head1 SYNOPSIS
 
@@ -140,7 +143,7 @@ require 5.003;
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.02";
+$VERSION="1.03";
 $VERSION=$VERSION;
 
 =pod
@@ -200,6 +203,9 @@ This will cause argvFile() to scan "optionFile" for options.
 The element "@optionFile" will be removed from the @ARGV array and
 will be replaced by the options found.
 
+Note: you can choose another prefix by using the "prefix" parameter,
+see below.
+
 An option file which cannot be found is quietly skipped.
 
 Well, what is I<within> an option file? It is intended to
@@ -207,7 +213,8 @@ store I<command line arguments> which should be passed to the called
 script. They can be stored exactly as they would be written in
 the command line, but may be spread to multiple lines. To make the
 file more readable, space and comment lines (starting with a "#")
-are allowed additionally. For example, the call
+are allowed additionally. POD comments are supported as well.
+For example, the call
 
   > script -optA argA -optB -optC cArg par1 par2
 
@@ -222,7 +229,9 @@ where the file "scriptOptions" may look like this:
 
 C<>
 
-  # option b
+  =pod
+  option b
+  =cut
   -optB
 
 C<>
@@ -336,6 +345,19 @@ a I<reference> to this array by parameter B<array>.
   argvFile()                    # processes @ARGV;
   argvFile(array=>\@options);   # processes @options;
 
+B<Choosing an alternative hint prefix>
+
+By default, "@" is the prefix used to mark an option file. This can
+be changed by using the optional parameter B<prefix>:
+
+ Examples:
+  argvFile();                   # use "@";
+  argvFile(prefix=>'~');        # use "~";
+
+Note that the strings "#", "=", "-" and "+" are reserved and I<cannot>
+be chosen here because they are used to start plain or POD comments or
+are typically option prefixes.
+
 =cut
 sub argvFile
  {
@@ -351,9 +373,14 @@ sub argvFile
 
   # perform more parameter checks
   confess('[BUG] The "array" parameter value is no array reference.') if exists $switches{'array'} and not (ref($switches{'array'}) and ref($switches{'array'}) eq 'ARRAY');
+  confess('[BUG] The "prefix" parameter value is no defined literal.') if exists $switches{'prefix'} and (not defined $switches{'prefix'} or ref($switches{'prefix'}));
+  confess('[BUG] Invalid "prefix" parameter $switches{"prefix"}.') if exists $switches{'prefix'} and $switches{'prefix'}=~/^[-#=+]$/;
 
   # set array reference
   my $arrayRef=exists $switches{'array'} ? $switches{'array'} : \@ARGV;
+
+  # set prefix
+  my $prefix=exists $switches{'prefix'} ? $switches{'prefix'} : '@';
 
   # init startup file pathes
   ($startup{'default'}{'path'}, $startup{'home'}{'path'})=(dirname($0), exists $ENV{'HOME'} ? $ENV{'HOME'} : \007);
@@ -364,75 +391,83 @@ sub argvFile
   # all startup options are placed before command line ones, and the
   # HOME settings can overwrite the DEFAULT ones - which are the most common
   foreach (reverse sort keys %startup)
-	{
-	 # anything to do?
-	 if (exists $switches{$_} and $startup{$_}{'path'} ne \007)
-	   {
-		# build absolute startup filename
-		my $cfg=join('', $startup{$_}{'path'}, '/.', basename($0));
+    {
+     # anything to do?
+     if (exists $switches{$_} and $startup{$_}{'path'} ne \007)
+       {
+        # build absolute startup filename
+        my $cfg=join('', $startup{$_}{'path'}, '/.', basename($0));
 
-		# if there's a configuration file, let's proceed it first - this way,
-		# command line options can overwrite configuration settings
-		unshift @$arrayRef, join('', '@', $cfg) if -e $cfg;
-	   }
-	}
+        # if there's a configuration file, let's proceed it first - this way,
+        # command line options can overwrite configuration settings
+        unshift @$arrayRef, join('', $prefix, $cfg) if -e $cfg;
+       }
+    }
 
   # nesting ...
-  while (grep(/^\@/, @$arrayRef))
-	{
-	 # declare scope variables
-	 my (%nr, @c, $c);
+  while (grep(/^$prefix/, @$arrayRef))
+    {
+     # declare scope variables
+     my (%nr, @c, $c);
 
-	 # scan the array for option file hints
-	 for ($i=0; $i<@$arrayRef; $i++)
-	   {$nr{$i}=1 if substr($arrayRef->[$i], 0, 1) eq '@';}
+     # scan the array for option file hints
+     for ($i=0; $i<@$arrayRef; $i++)
+       {$nr{$i}=1 if substr($arrayRef->[$i], 0, 1) eq $prefix;}
 
-	 for ($i=0; $i<@$arrayRef; $i++)
-	   {
-		if ($nr{$i})
-		  {
-		   # an option file - handle it
+     for ($i=0; $i<@$arrayRef; $i++)
+       {
+        if ($nr{$i})
+          {
+           # an option file - handle it
 
-		   # remove the option hint
-		   $arrayRef->[$i]=~s/\@//;
+           # remove the option hint
+           $arrayRef->[$i]=~s/$prefix//;
 
-		   # if there is still an option file hint in the name of the file,
-		   # this is a cascaded hint - insert it with a special temporary
-		   # hint (has to be different from"@" to avoid a subsequent solution
-		   # by this loop)
-		   push(@c, $arrayRef->[$i]), next if $arrayRef->[$i]=~s/^@/$maskString/;
+           # if there is still an option file hint in the name of the file,
+           # this is a cascaded hint - insert it with a special temporary
+           # hint (has to be different from $prefix to avoid a subsequent solution
+           # by this loop)
+           push(@c, $arrayRef->[$i]), next if $arrayRef->[$i]=~s/^$prefix/$maskString/;
 
-		   # skip nonexistent or recursively nested files
-		   next if !-e $arrayRef->[$i] || -d _ || $rfiles{$casesensitiveFilenames ? $arrayRef->[$i] : lc($arrayRef->[$i])};
+           # skip nonexistent or recursively nested files
+           next if !-e $arrayRef->[$i] || -d _ || $rfiles{$casesensitiveFilenames ? $arrayRef->[$i] : lc($arrayRef->[$i])};
 
-		   # store filename to avoid recursion
-		   $rfiles{$casesensitiveFilenames ? $arrayRef->[$i] : lc($arrayRef->[$i])}=1;
+           # store filename to avoid recursion
+           $rfiles{$casesensitiveFilenames ? $arrayRef->[$i] : lc($arrayRef->[$i])}=1;
 
-		   # open file and read its contents
-		   open(OPT, $arrayRef->[$i]);
-		   while (<OPT>)
-			 {
-			  # skip space and comment lines
-			  next if /^\s*$/ || /^\s*#/;
-			  # remove newlines, leading and trailing spaces
-			  s/\s*\n?$//; s/^\s*//;
-			  # store options and parameters
-			  push(@c, shellwords($_));
-			 }
-		  }
-		else
-		  {
-		   # a normal option or parameter - handle it
-		   push(@c, $arrayRef->[$i]);
-		  }
-	   }
+           # open file and read its contents
+           open(OPT, $arrayRef->[$i]);
+           {
+            # scopy
+            my ($pod);
 
-	 # replace array by expanded array
-	 @$arrayRef=@c;
-	}
+            while (<OPT>)
+              {
+               # check for POD directives
+               $pod=1 if /^=\w/;
+               $pod=0, next if /^=cut/;
+               # skip space and comment lines (including POD)
+               next if /^\s*$/ || /^\s*#/ || $pod;
+               # remove newlines, leading and trailing spaces
+               s/\s*\n?$//; s/^\s*//;
+               # store options and parameters
+               push(@c, shellwords($_));
+              }
+           }
+          }
+        else
+          {
+           # a normal option or parameter - handle it
+           push(@c, $arrayRef->[$i]);
+          }
+       }
 
-  # reset hint character in cascaded hints to "@"
-  @$arrayRef=map {s/^$maskString/@/; $_} @$arrayRef;
+     # replace array by expanded array
+     @$arrayRef=@c;
+    }
+
+  # reset hint character in cascaded hints to $prefix
+  @$arrayRef=map {s/^$maskString/$prefix/; $_} @$arrayRef;
  }
 
 # flag this module was read successfully
@@ -451,7 +486,7 @@ No message will be displayed, no special return code will be set.
 
 Jochen Stenzel E<lt>mailto://perl@jochen-stenzel.deE<gt>
 
-=head1 COPYRIGHT
+=head1 LICENSE
 
 Copyright (c) 1993-2000 Jochen Stenzel. All rights reserved.
 

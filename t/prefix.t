@@ -2,14 +2,17 @@
 # set pragma
 use strict;
 
+# load test module
+use Test;
+
 # load the module
 use Getopt::ArgvFile qw(argvFile);
 
-# display number of test
-print "1..2\n";
+# declare number of test
+BEGIN {plan tests=>2;}
 
 # action!
-argvFile(home=>1, default=>1);
+argvFile(home=>1, default=>1, prefix=>'~');
 
 # declare expected result
 my @expected=(
@@ -26,20 +29,20 @@ my @expected=(
 			  'par1',
 			  'par2',
 			  'par3',
-			  '@casca',
+			  '~casca',
 			  '-case',
 			  'lower',
 			 );
 
 # perform first check
-print @ARGV==@expected && "@ARGV" eq "@expected" ? 'ok' : 'not ok', "\n";
+ok(@ARGV==@expected && "@ARGV" eq "@expected");
 
 # declare an alternative array
 my @options;
 
 # action!
-argvFile(home=>1, default=>1, array=>\@options);
+argvFile(home=>1, default=>1, prefix=>'~', array=>\@options);
 
 # perform second check
-print @options==@expected && "@options" eq "@expected" ? 'ok' : 'not ok', "\n";
+ok(@options==@expected && "@options" eq "@expected");
 
