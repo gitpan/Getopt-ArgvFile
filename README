@@ -2,7 +2,7 @@
 Release
 =======
 
-Getopt::ArgvFile 1.0.
+Getopt::ArgvFile 1.01.
 
 
 Overview
@@ -99,6 +99,8 @@ Requirements
 Getopt::ArgvFile is tested with Perl versions 5.00[345].
 It should run under later versions as well.
 
+Text::ParseWords 3.1 is required.
+
 
 Installation
 ============
@@ -110,14 +112,14 @@ This module could be installed as usual by
 	make test
 	make install
 
-If you are using perl 5.003, there is a bug in the core
-module Text::ParseWords which is used by Getopt::ArgvFile
-internally. This module cannot be installed separately,
-but the version in the 5.005 core works fine. So to fix
-the bug, simply update your perl core by replacing
-ParseWords.pm by its 5.005 version. (This is a tip of the
-packages author.) The 5.004 version should work, too, but
-I did not test it.
+
+What's new?
+===========
+
+1.01 comes with an updated README to reflect that the
+     required module Text::ParseWords 3.1 is available
+     on CPAN now. If you are already running release
+     1.00 successfully, there is no need to update.
 
 
 Problems?

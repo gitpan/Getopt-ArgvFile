@@ -11,6 +11,9 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
 			  NAME         => 'Getopt::ArgvFile',
 			  VERSION_FROM => 'ArgvFile.pm',
+                          PREREQ_PM    => {
+                                           Text::ParseWords => 3.1,
+                                          },
 			  dist         => {
 			                   COMPRESS => 'gzip -9',
 			                   SUFFIX   => 'tgz',

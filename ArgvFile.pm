@@ -112,7 +112,7 @@ require 5.003;
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.0";
+$VERSION="1.01";
 $VERSION=$VERSION;
 
 =head1 EXPORTS
