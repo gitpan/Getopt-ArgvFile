@@ -1,7 +1,24 @@
 
+# = HISTORY SECTION =====================================================================
+
+# ---------------------------------------------------------------------------------------
+# version | date   | author   | changes
+# ---------------------------------------------------------------------------------------
+# 1.02    |27.02.00| JSTENZEL | new parameter "array";
+#         |        | JSTENZEL | slight POD adaptions;
+# 1.01    |23.03.99| JSTENZEL | README update only;
+# 1.00    |16.03.99| JSTENZEL | first CPAN version.
+# ---------------------------------------------------------------------------------------
+
+# = POD SECTION =========================================================================
+
 =head1 NAME
 
-Getopt::ArgvFile - interpolates script options from files into @ARGV
+Getopt::ArgvFile - interpolates script options from files into @ARGV or another array
+
+=head1 VERSION
+
+This manual describes version B<1.02>.
 
 =head1 SYNOPSIS
 
@@ -15,12 +32,23 @@ Getopt::ArgvFile - interpolates script options from files into @ARGV
   # evaluate options, e.g. this common way:
   GetOptions(%options, 'any');
 
+If options should be processed into another array, this can be done this way:
+
+  # prepare target array
+  my @options=('@options1', '@options2', '@options3');
+  ...
+  # replace file hints by the options stored in the files
+  argvFile(array=>\@options);
+
 =head1 DESCRIPTION
 
 This module simply interpolates option file hints in @ARGV
 by the contents of the pointed files. This enables option
 reading from I<files> instead of or additional to the usual
 reading from the command line.
+
+Alternatively, you can process any array instead of @ARGV
+which is used by default and mentioned mostly in this manual.
 
 The interpolated @ARGV could be subsequently processed by
 the usual option handling, e.g. by a Getopt::xxx module.
@@ -112,8 +140,10 @@ require 5.003;
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.01";
+$VERSION="1.02";
 $VERSION=$VERSION;
+
+=pod
 
 =head1 EXPORTS
 
@@ -143,13 +173,21 @@ use Text::ParseWords;
 
 # METHOD SECTION  ################################################
 
+=pod
+
 =head1 FUNCTIONS
 
 =head2 argvFile()
 
-Scans the command line parameters (stored in @ARGV) for option file hints
-(see I<Basics> below), reads the pointed files and makes their contents part
-of @ARGV replacing the hints.
+Scans the command line parameters (stored in @ARGV or an alternatively
+passed array) for option file hints (see I<Basics> below), reads the
+pointed files and makes their contents part of the source array
+(@ARGV by default) replacing the hints.
+
+Because the function was intentionally designed to work on @ARGV
+and this is still the default behaviour, this manual mostly speaks about
+@ARGV. Please note that it is possible to process I<any> other array
+as well.
 
 B<Basics>
 
@@ -164,7 +202,7 @@ will be replaced by the options found.
 
 An option file which cannot be found is quietly skipped.
 
-Well, what's I<within> an option file? It is intended to
+Well, what is I<within> an option file? It is intended to
 store I<command line arguments> which should be passed to the called
 script. They can be stored exactly as they would be written in
 the command line, but may be spread to multiple lines. To make the
@@ -250,12 +288,12 @@ users home (evaluated via environment variable "HOME").
 
 C<>
 
-  argvFile()                    ignores startup option files;
-  argvFile(default=>1)          searches and expands "/path/.script",
-                                if available (the "default" settings);
-  argvFile(home=>1)             searches and expands "/homes/user/.script",
-                                if available (the "home" settings);
-  argvFile(default=>1, home=>1) tries to handle both startups.
+  argvFile()                    # ignores startup option files;
+  argvFile(default=>1)          # searches and expands "/path/.script",
+                                # if available (the "default" settings);
+  argvFile(home=>1)             # searches and expands "/homes/user/.script",
+                                # if available (the "home" settings);
+  argvFile(default=>1, home=>1) # tries to handle both startups.
 
 Any true value will activate the setting it is assigned to.
 
@@ -288,6 +326,16 @@ another utility reading option files.
 
 The number of cascaded hints is unlimited.
 
+B<Processing an alternative array>
+
+However the function was designed to process @ARGV, it is possible to
+process another array as well if you prefer. To do this, simply pass
+a I<reference> to this array by parameter B<array>.
+
+ Examples:
+  argvFile()                    # processes @ARGV;
+  argvFile(array=>\@options);   # processes @options;
+
 =cut
 sub argvFile
  {
@@ -298,8 +346,14 @@ sub argvFile
   my $casesensitiveFilenames=$^O!~/^(?:dos|os2|MSWin32)/i;
 
   # check and get parameters
-  confess("[BUG] Number of parameters should be even") if @_ % 2;
+  confess("[BUG] Getopt::ArgvFile::argvFile() uses named parameters, please provide name value pairs.") if @_ % 2;
   my %switches=@_;
+
+  # perform more parameter checks
+  confess('[BUG] The "array" parameter value is no array reference.') if exists $switches{'array'} and not (ref($switches{'array'}) and ref($switches{'array'}) eq 'ARRAY');
+
+  # set array reference
+  my $arrayRef=exists $switches{'array'} ? $switches{'array'} : \@ARGV;
 
   # init startup file pathes
   ($startup{'default'}{'path'}, $startup{'home'}{'path'})=(dirname($0), exists $ENV{'HOME'} ? $ENV{'HOME'} : \007);
@@ -319,43 +373,43 @@ sub argvFile
 
 		# if there's a configuration file, let's proceed it first - this way,
 		# command line options can overwrite configuration settings
-		unshift @ARGV, join('', '@', $cfg) if -e $cfg;
+		unshift @$arrayRef, join('', '@', $cfg) if -e $cfg;
 	   }
 	}
 
   # nesting ...
-  while (grep(/^\@/, @ARGV))
+  while (grep(/^\@/, @$arrayRef))
 	{
 	 # declare scope variables
 	 my (%nr, @c, $c);
 
-	 # scan @ARGV for option file hints
-	 for ($i=0; $i<@ARGV; $i++)
-	   {$nr{$i}=1 if substr($ARGV[$i], 0, 1) eq '@';}
+	 # scan the array for option file hints
+	 for ($i=0; $i<@$arrayRef; $i++)
+	   {$nr{$i}=1 if substr($arrayRef->[$i], 0, 1) eq '@';}
 
-	 for ($i=0; $i<@ARGV; $i++)
+	 for ($i=0; $i<@$arrayRef; $i++)
 	   {
 		if ($nr{$i})
 		  {
 		   # an option file - handle it
 
 		   # remove the option hint
-		   $ARGV[$i]=~s/\@//;
+		   $arrayRef->[$i]=~s/\@//;
 
 		   # if there is still an option file hint in the name of the file,
 		   # this is a cascaded hint - insert it with a special temporary
 		   # hint (has to be different from"@" to avoid a subsequent solution
 		   # by this loop)
-		   push(@c, $ARGV[$i]), next if $ARGV[$i]=~s/^@/$maskString/;
+		   push(@c, $arrayRef->[$i]), next if $arrayRef->[$i]=~s/^@/$maskString/;
 
 		   # skip nonexistent or recursively nested files
-		   next if !-e $ARGV[$i] || -d _ || $rfiles{$casesensitiveFilenames ? $ARGV[$i] : lc($ARGV[$i])};
+		   next if !-e $arrayRef->[$i] || -d _ || $rfiles{$casesensitiveFilenames ? $arrayRef->[$i] : lc($arrayRef->[$i])};
 
 		   # store filename to avoid recursion
-		   $rfiles{$casesensitiveFilenames ? $ARGV[$i] : lc($ARGV[$i])}=1;
+		   $rfiles{$casesensitiveFilenames ? $arrayRef->[$i] : lc($arrayRef->[$i])}=1;
 
 		   # open file and read its contents
-		   open(OPT, $ARGV[$i]);
+		   open(OPT, $arrayRef->[$i]);
 		   while (<OPT>)
 			 {
 			  # skip space and comment lines
@@ -369,22 +423,24 @@ sub argvFile
 		else
 		  {
 		   # a normal option or parameter - handle it
-		   push(@c, $ARGV[$i]);
+		   push(@c, $arrayRef->[$i]);
 		  }
 	   }
 
-	 # replace @ARGV by expanded @ARGV
-	 @ARGV=@c;
+	 # replace array by expanded array
+	 @$arrayRef=@c;
 	}
 
   # reset hint character in cascaded hints to "@"
-  @ARGV=map {s/^$maskString/@/; $_} @ARGV;
+  @$arrayRef=map {s/^$maskString/@/; $_} @$arrayRef;
  }
 
 # flag this module was read successfully
 1;
 
 # POD TRAILER ####################################################
+
+=pod
 
 =head1 LIMITS
 
@@ -393,11 +449,11 @@ No message will be displayed, no special return code will be set.
 
 =head1 AUTHOR
 
-Jochen Stenzel E<lt>mailto://jochen.stenzel@t-online.deE<gt>
+Jochen Stenzel E<lt>mailto://perl@jochen-stenzel.deE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (c) 1993-99 Jochen Stenzel. All rights reserved.
+Copyright (c) 1993-2000 Jochen Stenzel. All rights reserved.
 
 This program is free software, you can redistribute it and/or modify it
 under the terms of the Artistic License distributed with Perl version

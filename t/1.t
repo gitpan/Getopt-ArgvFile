@@ -2,11 +2,11 @@
 # set pragma
 use strict;
 
-# load the new module
+# load the module
 use Getopt::ArgvFile qw(argvFile);
 
 # display number of test
-print "1..1\n";
+print "1..2\n";
 
 # action!
 argvFile(home=>1, default=>1);
@@ -31,4 +31,15 @@ my @expected=(
 			  'lower',
 			 );
 
+# perform first check
 print @ARGV==@expected && "@ARGV" eq "@expected" ? 'ok' : 'not ok', "\n";
+
+# declare an alternative array
+my @options;
+
+# action!
+argvFile(home=>1, default=>1, array=>\@options);
+
+# perform second check
+print @options==@expected && "@options" eq "@expected" ? 'ok' : 'not ok', "\n";
+

@@ -2,7 +2,7 @@
 Release
 =======
 
-Getopt::ArgvFile 1.01.
+Getopt::ArgvFile 1.02.
 
 
 Overview
@@ -71,6 +71,8 @@ as increase the handability of multi option scripts. (As an example,
 imagine a cronjob set up with option files which could be completely
 maintained outside the crontab.)
 
+The module can process an alternative array instead of @ARGV if one prefers.
+
 Further more, Getopt::ArgvFile supports both option file nesting and
 cascading as well as automatically read "default option files". Please
 see the documentation for details. It also contains several usage examples.
@@ -92,6 +94,14 @@ Now the command line can be processed as usual, e.g. by
 
 	Getopt::Long::GetOptions(...);
 
+If options should be processed into another array, this can be done this way:
+
+        # prepare target array
+        my @options=('@options1', '@options2', '@options3');
+
+        # replace file hints by file contents
+        argvFile(array=>\@options);
+
 
 Requirements
 ============
@@ -105,7 +115,7 @@ Text::ParseWords 3.1 is required.
 Installation
 ============
 
-This module could be installed as usual by
+This module can be installed as usual by
 
 	perl Makefile.PL
 	make
@@ -116,23 +126,24 @@ This module could be installed as usual by
 What's new?
 ===========
 
-1.01 comes with an updated README to reflect that the
+1.02 introduced new parameter "array".
+
+1.01 came with an updated README to reflect that the
      required module Text::ParseWords 3.1 is available
-     on CPAN now. If you are already running release
-     1.00 successfully, there is no need to update.
+     on CPAN now.
 
 
 Problems?
 =========
 
 If you run into trouble with this module, feel free
-to contact me at jochen.stenzel@t-online.de.
+to contact me at perl@jochen-stenzel.de.
 
 
 Author, Copyright, License
 ==========================
 
-Copyright (c) 1993-99 Jochen Stenzel. All rights reserved.
+Copyright (c) 1993-2000 Jochen Stenzel. All rights reserved.
 
 This program is free software, you can redistribute it and/or modify it
 under the terms of the Artistic License distributed with Perl version
