@@ -31,7 +31,7 @@ my @expected=(
               'lower',
              );
 
-# perform first check
+# perform checks
 is(@ARGV, @expected);
 eq_array(\@ARGV, \@expected);
 

@@ -2,7 +2,7 @@
 Release
 =======
 
-Getopt::ArgvFile 1.07.
+Getopt::ArgvFile 1.08.
 
 
 Overview
@@ -134,6 +134,44 @@ This module can be installed as usual by
 
 What's new?
 ===========
+
+1.08 In very rare circumstances, the one line processing
+     via use() that was introduced with 1.07 could break
+     older scripts written for 1.06 or before. These were
+     the conditions:
+
+      * The module was loaded by "use Getopt::ArgvFile",
+        without import hints.
+
+      * Therefore, &argvFile was not imported into the
+        loaders namespace, so it had to be called via full
+        name as "Getopt::ArgvFile::argvFile(...)".
+
+      * The loader made use of cascading (was aware of
+        multiple prefixes like in "@@optionfile", of which
+        only the first level should be processed by the
+        call of argvFile() and remaining hints should be
+        passed through to another script).
+
+     In such cases, option hints were processed *twice*
+     unintentionally with 1.07, cause both "use" and the
+     explicit call of argvFile() invoked this processing,
+     which caused *two* level hints to be resolved instead
+     of one.
+
+     To adapt such scripts, 1.08 introduces a "justload"
+     switch for "use":
+
+       use Getopt::ArgvFile justload=>1;
+
+     This loads the module, but suppresses further operations.
+
+     Alternatively, one could remove the explicit call
+     of Getopt::ArgvFile::argvFile() from affected scripts.
+
+     -
+
+     More tests added.
 
 1.07 Bugfix: a missing HOME environment variable was not
      handled correctly in all cases, causing error messages.

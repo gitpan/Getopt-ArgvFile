@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------------------------
 # version | date   | author   | changes
 # ---------------------------------------------------------------------------------------
+# 1.08    |30.04.04| JSTENZEL | new import() switch "justload";
 # 1.07    |29.04.04| JSTENZEL | import() implemented directly: emulating the old behaviour
 #         |        |          | of Exporter::import() when necessary, it alternatively
 #         |        |          | allows to invoke argvFile() via use();
@@ -35,26 +36,11 @@ Getopt::ArgvFile - interpolates script options from files into @ARGV or another 
 
 =head1 VERSION
 
-This manual describes version B<1.07>.
+This manual describes version B<1.08>.
 
 =head1 SYNOPSIS
 
-  # load the module
-  use Getopt::ArgvFile qw(argvFile);
-
-  # load another module to evaluate the options, e.g.:
-  use Getopt::Long;
-  ...
-
-  # solve option files
-  argvFile(default=>1);
-
-  # evaluate options, e.g. this common way:
-  GetOptions(%options, 'any');
-
-
-Or use the one line invocation - just pass the parameters of C<argvFile()>
-to C<use()>:
+One line invocation - option hints are processed while the module is loaded:
 
   # load module and process option file hints in @ARGV
   use Getopt::ArgvFile default=>1;
@@ -66,6 +52,41 @@ to C<use()>:
   # evaluate options, e.g. this common way:
   GetOptions(%options, 'any');
 
+Or suppress option hint processing when the module is loaded, to
+perform it later on:
+
+  # load module, do *not* process option file hints
+  use Getopt::ArgvFile justload=>1;
+   
+  # load another module to evaluate the options, e.g.:
+  use Getopt::Long;
+  ...
+
+  # *now*, solve option file hints
+  Getopt::ArgvFile::argvFile(default=>1);
+
+  # evaluate options, e.g. this common way:
+  GetOptions(%options, 'any');
+
+Or use the traditional two step invocation of module loading with
+I<symbol import> and I<explicit> option file handling:
+
+  # Load the module and import the &argvFile symbol
+  # - this will *not* process option hints.
+  # Use *this* syntax to do so, *exactly*.
+  use Getopt::ArgvFile qw(argvFile);
+
+  # load another module to evaluate the options, e.g.:
+  use Getopt::Long;
+  ...
+
+  # *now*, solve option file hints
+  argvFile(default=>1);
+
+  # evaluate options, e.g. this common way:
+  GetOptions(%options, 'any');
+
+
 If options should be processed into another array, this can be done this way:
 
   # prepare target array
@@ -75,6 +96,9 @@ If options should be processed into another array, this can be done this way:
 
   # replace file hints by the options stored in the files
   argvFile(array=>\@options);
+
+
+
 
 =head1 DESCRIPTION
 
@@ -176,7 +200,7 @@ require 5.003;
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.07";
+$VERSION="1.08";
 $VERSION=$VERSION;
 
 =pod
@@ -184,11 +208,20 @@ $VERSION=$VERSION;
 =head1 EXPORTS
 
 No symbol is exported by default, but you may explicitly import
-the "argvFile()" function.
-
-Example:
+the "argvFile()" function I<using the exact syntax of the following example>:
 
   use Getopt::ArgvFile qw(argvFile);
+
+Please note that this interface is provided for backwards compatibility with
+versions up to 1.06. By loading the module this way, the traditional import
+mechanisms take affect and I<C<argvFile()> is not called implicitly>.
+
+This means that while option file hints are usually processed implicitly when
+C<Getopt::ArgvFile> is loaded, the syntax
+
+  use Getopt::ArgvFile qw(argvFile);
+
+requires an I<extra> call of I<argvFile()> to process option files.
 
 =cut
 
@@ -214,6 +247,33 @@ use Cwd qw(:DEFAULT abs_path chdir);
 =pod
 
 =head1 FUNCTIONS
+
+There is only one function, I<argvFile()>, which does all the work of
+option file hint processing.
+
+Please note that with version 1.07 and above C<argvFile()> is called
+I<implicitly> when the module is loaded, except this is done in one of
+the following ways:
+
+  # the traditional interface - provided for
+  # backwards compatibility - this loads the
+  # module and imports the &argvFile symbol
+  use Getopt::ArgvFile qw(argvFile);
+
+  --
+
+  # option file processing is explicitly suppressed
+  use Getopt::ArgvFile justload=>1;
+
+Except for the traditional loading, the complete interface of C<argvFile()>
+is available via C<use>, but in the typical C<use> syntax without
+parantheses.
+
+  # implicit call of argvFile(default=>1, home=>1)
+  use Getopt::ArgvFile default=>1, home=>1;
+
+See I<ONE LINE INVOCATION> for further details.
+
 
 =head2 argvFile()
 
@@ -452,6 +512,13 @@ sub argvFile
   confess('[BUG] Invalid "prefix" parameter $switches{"prefix"}.') if exists $switches{prefix} and $switches{prefix}=~/^[-#=+]$/;
   confess('[BUG] The "startupFilename" parameter value is neither a scalar nor a code reference.') if exists $switches{startupFilename} and ref($switches{startupFilename}) and ref($switches{startupFilename}) ne 'CODE';
 
+  # check if further operations are suppressed (in case of a call via import())
+  {
+   my ($callerSub)=(caller(1))[3];
+   return if     defined $callerSub and $callerSub eq join('::', __PACKAGE__, 'import')
+             and exists $switches{justload};
+  }
+
   # set array reference
   my $arrayRef=exists $switches{array} ? $switches{array} : \@ARGV;
 
@@ -621,7 +688,7 @@ sub import
 
 =head1 ONE LINE INVOCATION
 
-The typical two line sequence
+The traditional two line sequence
 
   # load the module
   use Getopt::ArgvFile qw(argvFile);
@@ -641,6 +708,21 @@ Please note that in this case option file hints are processed at compile
 time. This means that if you want to process alternative arrays, these
 arrays have to be prepared before, usually in a C<BEGIN> block.
 
+In versions 1.07 and above, implicit option file handling is the I<default>
+and only suppressed for the traditional
+
+  use Getopt::ArgvFile qw(argvFile);
+
+loading, for reasons of backwards compatibility. A simple loading like
+
+  use Getopt::ArgvFile;
+
+I<will> process option hints! If you want to suppress this, use the
+B<C<justload>> switch:
+
+  use Getopt::ArgvFile justload=>1;
+
+See I<FUNCTIONS> for additional informations.
 
 =head1 NOTES
 

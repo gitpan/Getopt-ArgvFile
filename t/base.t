@@ -55,6 +55,20 @@ undef(@ARGV);
  eq_array(\@ARGV, \@current);
 }
 
+# modify HOME and check the "home" switch
+undef(@ARGV);
+{
+ # adapt environment
+ local($ENV{HOME})=dirname($0);
+
+ # process hints
+ argvFile(home=>1);
+
+ # check results
+ is(@ARGV, @expected);
+ eq_array(\@ARGV, \@expected);
+}
+
 # declare an alternative array
 my @options;
 
