@@ -2,7 +2,7 @@
 Release
 =======
 
-Getopt::ArgvFile 1.05.
+Getopt::ArgvFile 1.06.
 
 
 Overview
@@ -126,6 +126,14 @@ This module can be installed as usual by
 
 What's new?
 ===========
+
+1.06 argvFile() takes a new option "startupFilename"
+     to let users specify what scheme should be used
+     to find startup files (thanks to Helmut Steinbach
+     for the initial idea). Names may be specified
+     directly or by a reference to a function which
+     will then be invoked with the scriptname to
+     provide the filename dynamically.
 
 1.05 Using File::Spec::Functions to build filenames
      more portable.

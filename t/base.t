@@ -4,6 +4,7 @@ use strict;
 
 # load modules
 use Cwd;
+use File::Basename;
 use Test::More qw(no_plan);
 
 # load the module
@@ -65,5 +66,21 @@ is(@options, @expected);
 eq_array(\@options, \@expected);
 
 
+# use other startup filename schemes: configured by string
+undef(@ARGV);
+argvFile(default=>1, startupFilename=>'.base.t.cfg');
+
+# perform next check
+is(@ARGV, @expected);
+eq_array(\@ARGV, \@expected);
+
+
+# use other startup filename schemes: configured by a function
+undef(@ARGV);
+argvFile(default=>1, startupFilename=>sub {join('', '.', basename($_[0]), '.cfg');});
+
+# perform next check
+is(@ARGV, @expected);
+eq_array(\@ARGV, \@expected);
 
 

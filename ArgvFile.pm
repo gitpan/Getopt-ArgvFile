@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------------------------
 # version | date   | author   | changes
 # ---------------------------------------------------------------------------------------
+# 1.06    |03.05.02| JSTENZEL | the startup filename scheme is now configurable by the
+#         |        |          | new option "startupFilename";
 # 1.05    |30.04.02| JSTENZEL | cosmetics: hash access without quotes;
 #         |        | JSTENZEL | corrected and improved inline doc;
 #         |        | JSTENZEL | using File::Spec::Functions to build filenames,
@@ -30,7 +32,7 @@ Getopt::ArgvFile - interpolates script options from files into @ARGV or another 
 
 =head1 VERSION
 
-This manual describes version B<1.05>.
+This manual describes version B<1.06>.
 
 =head1 SYNOPSIS
 
@@ -157,7 +159,7 @@ require 5.003;
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.05";
+$VERSION="1.06";
 $VERSION=$VERSION;
 
 =pod
@@ -301,12 +303,17 @@ into @ARGV.
 
 B<Startup support>
 
-By setting several named parameters, you can enable I<default>, I<home>
-and I<current> option files. All are searched with the scriptname preceeded
-by a dot. The I<default option file> is searched in the installation path
-of the calling script, while the I<home option file> is searched in the
+By setting several named parameters, you can enable automatic processing
+of I<startup option files>. There are three of them:
+
+The I<default option file> is searched in the installation path
+of the calling script, the I<home option file> is searched in the
 users home (evaluated via environment variable "HOME"), and the
 I<current option script> is searched in the current directory.
+
+By default, all startup option files are expected to be named like
+the script, preceeded by a dot, but this can be adapted to individual
+needs if preferred, see below.
 
  Examples:
   If a script located in "/path/script" is invoked in directory
@@ -329,6 +336,20 @@ C<>
           )                     # tries to handle all startups.
 
 Any true value will activate the setting it is assigned to.
+
+In case the ".script" name rule does not meet your needs or does not fit
+into a certain policy, the expected startup filenames can be set up by
+an option C<startupFilename>. The option value may be a scalar used as
+the expected filename, or a reference to code returning the name. Such
+code will be called I<once> and will receive the name of the script.
+
+  # use ".config"
+  argvFile(startupFilename => '.config');
+
+  # emulate the default behaviour,
+  # but use an extra dot postfix
+  my $nameBuilder=sub {join('', '.', basename($_[0]), '.');}
+  argvFile(startupFilename => $nameBuilder);
 
 The contents found in a startup file is placed I<before> all explicitly
 set command line arguments. This enables to overwrite a default setting
@@ -412,12 +433,20 @@ sub argvFile
   confess('[BUG] The "array" parameter value is no array reference.') if exists $switches{array} and not (ref($switches{array}) and ref($switches{array}) eq 'ARRAY');
   confess('[BUG] The "prefix" parameter value is no defined literal.') if exists $switches{prefix} and (not defined $switches{prefix} or ref($switches{prefix}));
   confess('[BUG] Invalid "prefix" parameter $switches{"prefix"}.') if exists $switches{prefix} and $switches{prefix}=~/^[-#=+]$/;
+  confess('[BUG] The "startupFilename" parameter value is neither a scalar nor a code reference.') if exists $switches{startupFilename} and ref($switches{startupFilename}) and ref($switches{startupFilename}) ne 'CODE';
 
   # set array reference
   my $arrayRef=exists $switches{array} ? $switches{array} : \@ARGV;
 
   # set prefix
   my $prefix=exists $switches{prefix} ? $switches{prefix} : '@';
+
+  # set up startup filename
+  my $startupFilename=exists $switches{startupFilename}
+                       ? ref($switches{startupFilename})
+                           ? $switches{startupFilename}->($0)
+                           : $switches{startupFilename}
+                       : join('', '.', basename($0));
 
   # init startup file pathes
   (
@@ -442,7 +471,7 @@ sub argvFile
      next unless exists $switches{$type};
 
      # build filename
-     my $cfg=catfile(abs_path($startup{$type}{path}), join('', '.', basename($0)));
+     my $cfg=catfile(abs_path($startup{$type}{path}), $startupFilename);
 
      # remove this setting if the associated file
      # was already seen before (each file should be read once)
@@ -467,7 +496,7 @@ sub argvFile
      if (exists $switches{$_} and $startup{$_}{path} ne \007)
        {
         # build absolute startup filename
-        my $cfg=catfile(abs_path($startup{$_}{path}), join('', '.', basename($0)));
+        my $cfg=catfile(abs_path($startup{$_}{path}), $startupFilename);
 
         # let's proceed this file first - this way,
         # command line options can overwrite configuration settings

@@ -2,6 +2,7 @@ ArgvFile.pm
 Makefile.PL
 README
 t/.base.t
+t/.base.t.cfg
 t/base.t
 t/.prefix.t
 t/prefix.t
