@@ -5,11 +5,11 @@ use strict;
 # load test module
 use Test::More qw(no_plan);
 
-# load the module
-use Getopt::ArgvFile qw(argvFile);
+# prepare @ARGV
+BEGIN {@ARGV=('~t/.prefix.t')}
 
-# action!
-argvFile(default=>1, prefix=>'~');
+# load the module
+use Getopt::ArgvFile prefix=>'~';
 
 # declare expected result
 my @expected=(
@@ -34,14 +34,4 @@ my @expected=(
 # perform first check
 is(@ARGV, @expected);
 eq_array(\@ARGV, \@expected);
-
-# declare an alternative array
-my @options;
-
-# action!
-argvFile(default=>1, prefix=>'~', array=>\@options);
-
-# perform second check
-is(@options, @expected);
-eq_array(\@options, \@expected);
 

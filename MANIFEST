@@ -6,5 +6,7 @@ t/.base.t.cfg
 t/base.t
 t/.prefix.t
 t/prefix.t
+t/noHOMEvar.t
+t/use.t
 t/case.cfg
 MANIFEST

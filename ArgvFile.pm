@@ -4,6 +4,9 @@
 # ---------------------------------------------------------------------------------------
 # version | date   | author   | changes
 # ---------------------------------------------------------------------------------------
+# 1.07    |29.04.04| JSTENZEL | import() implemented directly: emulating the old behaviour
+#         |        |          | of Exporter::import() when necessary, it alternatively
+#         |        |          | allows to invoke argvFile() via use();
 # 1.06    |03.05.02| JSTENZEL | the startup filename scheme is now configurable by the
 #         |        |          | new option "startupFilename";
 # 1.05    |30.04.02| JSTENZEL | cosmetics: hash access without quotes;
@@ -32,7 +35,7 @@ Getopt::ArgvFile - interpolates script options from files into @ARGV or another 
 
 =head1 VERSION
 
-This manual describes version B<1.06>.
+This manual describes version B<1.07>.
 
 =head1 SYNOPSIS
 
@@ -44,7 +47,21 @@ This manual describes version B<1.06>.
   ...
 
   # solve option files
-  argvFile;
+  argvFile(default=>1);
+
+  # evaluate options, e.g. this common way:
+  GetOptions(%options, 'any');
+
+
+Or use the one line invocation - just pass the parameters of C<argvFile()>
+to C<use()>:
+
+  # load module and process option file hints in @ARGV
+  use Getopt::ArgvFile default=>1;
+   
+  # load another module to evaluate the options, e.g.:
+  use Getopt::Long;
+  ...
 
   # evaluate options, e.g. this common way:
   GetOptions(%options, 'any');
@@ -159,7 +176,7 @@ require 5.003;
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.06";
+$VERSION="1.07";
 $VERSION=$VERSION;
 
 =pod
@@ -175,9 +192,9 @@ Example:
 
 =cut
 
-# export something
+# export something (Exporter is not made a base module because we implement import() ourselves,
+# which *can* call Exporter::import() (if needed for backwards compatibility) - see import())
 require Exporter;
-@ISA=qw(Exporter);
 @EXPORT_OK=qw(argvFile);
 
 # CODE SECTION  ##################################################
@@ -455,9 +472,13 @@ sub argvFile
    $startup{current}{path},
   )=(
      dirname($0),
-     exists $ENV{HOME} ? $ENV{HOME} : \007,
+     exists $ENV{HOME} ? $ENV{HOME} : 'no HOME variable, sorry',
      cwd(),
     );
+
+  # ignore the "home" switch if there is no HOME environment variable, for reasons
+  # of security
+  delete $switches{home} unless exists $ENV{HOME};
 
   # If startup pathes are *identical* (script installed in home directory) and
   # both startup flags are set, we can delete one of them (to read the options only once).
@@ -493,7 +514,7 @@ sub argvFile
   foreach (qw(current home default))
     {
      # anything to do?
-     if (exists $switches{$_} and $startup{$_}{path} ne \007)
+     if (exists $switches{$_})
        {
         # build absolute startup filename
         my $cfg=catfile(abs_path($startup{$_}{path}), $startupFilename);
@@ -571,12 +592,55 @@ sub argvFile
   @$arrayRef=map {s/^$maskString/$prefix/; $_} @$arrayRef;
  }
 
+
+# allow one line invokation via "use", but make sure to keep backwards compatibility to
+# the traditional interface inherited from Exporter 
+sub import
+ {
+  # check if the caller intended to import symbols
+  # (till 1.06, import() was inherited from Exporter and the only symbol to import was argvFile())
+  if (@_==2 and $_[-1] eq "argvFile")
+   {goto &Exporter::import;}
+  else
+   {
+    # shift away the module name
+    shift;
+
+    # invoke argvFile(): now option files are processed while the module is loaded
+    argvFile(@_);
+   }
+ }
+
+
 # flag this module was read successfully
 1;
 
 # POD TRAILER ####################################################
 
 =pod
+
+=head1 ONE LINE INVOCATION
+
+The typical two line sequence
+
+  # load the module
+  use Getopt::ArgvFile qw(argvFile);
+
+  ...
+
+  # solve option files
+  argvFile(default=>1);
+
+can be reduced to one line - just pass the parameters of C<argvFile()>
+to C<use()>:
+
+  # load module and process option file hints in @ARGV
+  use Getopt::ArgvFile default=>1;
+
+Please note that in this case option file hints are processed at compile
+time. This means that if you want to process alternative arrays, these
+arrays have to be prepared before, usually in a C<BEGIN> block.
+
 
 =head1 NOTES
 
@@ -598,7 +662,7 @@ Jochen Stenzel E<lt>mailto://perl@jochen-stenzel.deE<gt>
 
 =head1 LICENSE
 
-Copyright (c) 1993-2002 Jochen Stenzel. All rights reserved.
+Copyright (c) 1993-2004 Jochen Stenzel. All rights reserved.
 
 This program is free software, you can redistribute it and/or modify it
 under the terms of the Artistic License distributed with Perl version

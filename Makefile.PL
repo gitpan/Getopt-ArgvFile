@@ -19,5 +19,5 @@ WriteMakefile(
 			  dist         => {
 			                   COMPRESS => 'gzip -9',
 			                   SUFFIX   => 'tgz',
-							  },
+					  },
 			 );

@@ -2,7 +2,7 @@
 Release
 =======
 
-Getopt::ArgvFile 1.06.
+Getopt::ArgvFile 1.07.
 
 
 Overview
@@ -88,11 +88,19 @@ to your script:
 	use Getopt::ArgvFile qw(argvFile);
 	
 	# solve option files, if any
-	argvFile();
+	argvFile(default=>1);
+
+Or use the one line invocation - just pass the parameters of argvFile() to
+use():
+
+	# load module and process option file hints in @ARGV
+	use Getopt::ArgvFile default=>1;
+   
 
 Now the command line can be processed as usual, e.g. by
 
 	Getopt::Long::GetOptions(...);
+
 
 If options should be processed into another array, this can be done this way:
 
@@ -126,6 +134,31 @@ This module can be installed as usual by
 
 What's new?
 ===========
+
+1.07 Bugfix: a missing HOME environment variable was not
+     handled correctly in all cases, causing error messages.
+     Thanks to Matthew Brett for the bug report.
+
+     -
+
+     It is now possible to process option files while
+     the module is loaded.
+
+     Before, a typical use looked like this:
+
+      use Getopt::ArgvFile qw(argvFile);
+      ...
+      argvFile(default=>1);
+
+     While this is still possible and valid, it can be
+     reduced to one line now:
+
+      use Getopt::ArgvFile default=>1;
+
+     Just pass the parameters of argvFile() to use().
+     Thanks to johanl AT darsermann.com for the
+     suggestion.
+
 
 1.06 argvFile() takes a new option "startupFilename"
      to let users specify what scheme should be used
@@ -173,7 +206,7 @@ to contact me at perl@jochen-stenzel.de.
 Author, Copyright, License
 ==========================
 
-Copyright (c) 1993-2002 Jochen Stenzel. All rights reserved.
+Copyright (c) 1993-2004 Jochen Stenzel. All rights reserved.
 
 This module is free software, you can redistribute it and/or modify it
 under the terms of the Artistic License distributed with Perl version
