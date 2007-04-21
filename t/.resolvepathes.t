@@ -13,7 +13,7 @@
 
 # back to first file (relative to *this* file!!)
 -file1
-.././../././Getopt-ArgvFile-1.10/t/file1
+../././t/file1
 
 # now, for a nested option file (relative to *this* file!!)
 @././././.resolvepathes2.t

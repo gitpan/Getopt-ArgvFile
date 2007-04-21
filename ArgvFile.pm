@@ -4,6 +4,15 @@
 # ---------------------------------------------------------------------------------------
 # version | date   | author   | changes
 # ---------------------------------------------------------------------------------------
+# 1.11    |17.04.07| JSTENZEL | renamed fileOptions2prefixes() into _fileOptions2prefixes(),
+#         |        |          | in order to avoid POD documentation because it is an
+#         |        |          | internal helper function;
+#         |        | JSTENZEL | slight adaptations after complaints of perlcritic;
+#         |        | JSTENZEL | added POD hints that GetOptions() is imported from
+#         |        |          | Getopt::Long and not defined in Getopt::ArgvFile;
+#         |        | JSTENZEL | POD: bugfix in GetOptions() calls, %options hash needs to
+#         |        |          | be passed in as reference;
+#         |21.04.07| JSTENZEL | POD: bugfix in -fileOption example;
 # 1.10    |05.01.05| JSTENZEL | added options resolveRelativePathes and resolveEnvVars;
 # 1.09    |19.10.04| JSTENZEL | option -startupFilename now accepts array references both
 #         |        |          | directly set up and supplied by a callback;
@@ -42,7 +51,7 @@ Getopt::ArgvFile - interpolates script options from files into @ARGV or another 
 
 =head1 VERSION
 
-This manual describes version B<1.10>.
+This manual describes version B<1.11>.
 
 =head1 SYNOPSIS
 
@@ -56,7 +65,7 @@ One line invocation - option hints are processed while the module is loaded:
   ...
 
   # evaluate options, e.g. this common way:
-  GetOptions(%options, 'any');
+  GetOptions(\%options, 'any');    # this function is defined in Getopt::Long
 
 Or suppress option hint processing when the module is loaded, to
 perform it later on:
@@ -72,7 +81,7 @@ perform it later on:
   Getopt::ArgvFile::argvFile(default=>1);
 
   # evaluate options, e.g. this common way:
-  GetOptions(%options, 'any');
+  GetOptions(\%options, 'any');    # this function is defined in Getopt::Long
 
 Or use the traditional two step invocation of module loading with
 I<symbol import> and I<explicit> option file handling:
@@ -90,7 +99,7 @@ I<symbol import> and I<explicit> option file handling:
   argvFile(default=>1);
 
   # evaluate options, e.g. this common way:
-  GetOptions(%options, 'any');
+  GetOptions(\%options, 'any');    # this function is defined in Getopt::Long
 
 
 If options should be processed into another array, this can be done this way:
@@ -112,7 +121,7 @@ be used instead:
   ...
 
   # replace file hints by the options stored in the files
-  argvFile(fileOption=>'option', array=>\@options);
+  argvFile(fileOption=>'options', array=>\@options);
 
 
 =head1 DESCRIPTION
@@ -208,15 +217,15 @@ option files have to be adapted.
 
 # PACKAGE SECTION  ###############################################
 
-# force Perl version
-require 5.003;
-
 # declare namespace
 package Getopt::ArgvFile;
 
 # declare your revision (and use it to avoid a warning)
-$VERSION="1.10";
+$VERSION=1.11;
 $VERSION=$VERSION;
+
+# force Perl version
+require 5.003;
 
 =pod
 
@@ -423,7 +432,7 @@ and nested option files.
 A path is resolved I<relative to the option file> it is found in.
 
 
-B<Envrionment variables>
+B<Environment variables>
 
 Similar to relative pathes, environment variables are handled differently
 depending if the option is specified at the commandline or from an option
@@ -546,7 +555,7 @@ The number of cascaded hints is unlimited.
 
 B<Processing an alternative array>
 
-However the function was designed to process @ARGV, it is possible to
+Although the function was designed to process @ARGV, it is possible to
 process another array as well if you prefer. To do this, simply pass
 a I<reference> to this array by parameter B<array>.
 
@@ -613,7 +622,7 @@ sub argvFile
   my $casesensitiveFilenames=$^O!~/^(?:dos|os2|MSWin32)/i;
 
   # check and get parameters
-  confess("[BUG] Getopt::ArgvFile::argvFile() uses named parameters, please provide name value pairs.") if @_ % 2;
+  confess('[BUG] Getopt::ArgvFile::argvFile() uses named parameters, please provide name value pairs.') if @_ % 2;
   my %switches=@_;
 
   # perform more parameter checks
@@ -658,7 +667,7 @@ sub argvFile
    unless ref($startupFilenames);
 
   # substitute file options by prefixes, if necessary
-  fileOptions2prefixes($fileOption, $prefix, $arrayRef) if $fileOption;
+  _fileOptions2prefixes($fileOption, $prefix, $arrayRef) if $fileOption;
 
   # init startup file paths
   (
@@ -775,7 +784,7 @@ sub argvFile
                # as they would get lost otherwise (other backslash removals are welcome!)
                s/\\\$/\\\\\$/g;
                my (@shellwords)=shellwords($_);
-               
+
                # replace environment variables, if necessary
                if (exists $switches{resolveEnvVars})
                  {
@@ -827,7 +836,7 @@ sub argvFile
        }
 
      # substitute file options by prefixes, if necessary
-     fileOptions2prefixes($fileOption, $prefix, \@c) if $fileOption;
+     _fileOptions2prefixes($fileOption, $prefix, \@c) if $fileOption;
 
      # replace original array by expanded array
      @$arrayRef=@c;
@@ -859,7 +868,7 @@ sub import
 
 
 # preprocess an array to convert the -fileOption string into a prefix
-sub fileOptions2prefixes
+sub _fileOptions2prefixes
  {
   # get and check parameters
   my ($fileOption, $prefix, $arrayRef)=@_;
@@ -873,7 +882,7 @@ sub fileOptions2prefixes
     $options=~s/($optionPrefixPattern$fileOption\x01+)/$prefix/g;
 
     # replace original array
-    @$arrayRef=split("\x01\x01\x01", $options);;
+    @$arrayRef=split(/\x01\x01\x01/, $options);;
    }
  }
 
@@ -944,7 +953,7 @@ Jochen Stenzel E<lt>mailto:perl@jochen-stenzel.deE<gt>
 
 =head1 LICENSE
 
-Copyright (c) 1993-2005 Jochen Stenzel. All rights reserved.
+Copyright (c) 1993-2007 Jochen Stenzel. All rights reserved.
 
 This program is free software, you can redistribute it and/or modify it
 under the terms of the Artistic License distributed with Perl version

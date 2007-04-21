@@ -27,7 +27,7 @@ my @expected=(
               './../file2',
 
               '-file1',
-              ".././../././Getopt-ArgvFile-$Getopt::ArgvFile::VERSION/t/file1",
+              "../././t/file1",
              );
 
 # perform first check
